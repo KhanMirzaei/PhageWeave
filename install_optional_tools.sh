@@ -11,7 +11,15 @@ if ! conda env list | awk '{print $1}' | grep -qx phageweave-replidec; then
 fi
 if ! conda env list | awk '{print $1}' | grep -qx phageweave-vhulk; then
   log 'Installing vHULK host-prediction environment (legacy Python/TensorFlow stack)'
-  conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.7 prokka hmmer numpy pandas scipy biopython tensorflow=2.8.2 || log 'vHULK environment installation failed; use Linux/Docker if TensorFlow is unavailable on macOS.'
+  # TensorFlow 2.8.2 is absent from some macOS Conda channels. Create the
+  # scientific-tool environment with Conda, then install the matching Intel
+  # macOS wheel with pip as a fallback.
+  if ! conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.10 prokka hmmer numpy pandas scipy biopython pip tensorflow=2.8.2; then
+    log 'Conda TensorFlow package unavailable; retrying with the pip wheel.'
+    conda env remove -y -n phageweave-vhulk >/dev/null 2>&1 || true
+    conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.10 prokka hmmer numpy pandas scipy biopython pip || log 'vHULK base environment failed.'
+    conda run -n phageweave-vhulk python -m pip install 'tensorflow==2.8.2' || log 'TensorFlow 2.8.2 could not be installed; use Linux/Docker.'
+  fi
 fi
 if [[ ! -d "$TOOLS/vHULK" ]]; then
   log 'Fetching vHULK models and script'
