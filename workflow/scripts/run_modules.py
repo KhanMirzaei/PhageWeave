@@ -14,7 +14,7 @@ def main():
             txt=p.read_text().rstrip(); w.write(txt+'\n')
             header=next((x[1:].split()[0] for x in txt.splitlines() if x.startswith('>')),p.stem)
             a.write(f'{p.stem}\t{header}\n')
-    result={'Pharokka':{'available':False,'ran':False},'Replidec':{'available':False,'ran':False},'vHULK':{'available':False,'ran':False},'WIsH':{'available':False,'ran':False},'DefenseFinder':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False}}
+    result={'Pharokka':{'available':False,'ran':False},'Replidec':{'available':False,'ran':False},'vHULK':{'available':False,'ran':False},'WIsH':{'available':False,'ran':False},'DefenseFinder':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False},'Depolymerase/RBP/Sie':{'available':True,'ran':False,'note':'Derived by trait_scan.py from Pharokka annotations.'},'AcrFinder':{'available':False,'ran':False}}
     ph=Path('/usr/local/Caskroom/miniconda/base/envs/phageorbit-pharokka/bin/pharokka.py')
     db=Path(__import__('os').environ.get('PHAGEWEAVE_PHAROKKA_DB','databases/pharokka'))
     if ph.exists() and os.environ.get('PHAGEWEAVE_SKIP_PHAROKKA','0') not in {'1','true','yes'}:
@@ -88,8 +88,25 @@ def main():
         except (OSError,subprocess.CalledProcessError) as e: result['WIsH']['error']=str(e)
     elif not wish: result['WIsH']['note']='WIsH executable not installed.'
     else: result['WIsH']['note']='Provide bacterial FASTA directory with PHAGEWEAVE_WISH_HOST_DB to enable WIsH.'
-    for name,commands in {'DefenseFinder':['defensefinder','defense-finder'],'PADLOC':['padloc'],'DePP':['DePP.py','depp']}.items():
+    # Trait scan is always wired; it uses Pharokka product annotations and
+    # explicitly reports unavailable when no annotation text exists.
+    result['Depolymerase/RBP/Sie']['ran']=bool((out/'pharokka').exists())
+    for name,commands in {'DefenseFinder':['defense-finder','defensefinder'],'PADLOC':['padloc'],'DePP':['DePP.py','depp'],'AcrFinder':['acrfinder','AcrFinder']}.items():
         exe=next((shutil.which(x) for x in commands if shutil.which(x)),None)
-        result[name]['available']=bool(exe); result[name]['note']='Detected but not auto-run without a configured database/model.' if exe else 'Executable not installed.'
+        result[name]['available']=bool(exe)
+        bacteria=os.environ.get('PHAGEWEAVE_BACTERIA_DIR','')
+        # DefenseFinder/PADLOC operate on bacterial proteins/genomes, not on
+        # phage FASTA. Run only when the user supplies a bacterial directory.
+        if exe and bacteria and Path(bacteria).is_dir() and name in {'DefenseFinder','PADLOC'}:
+            target=out/'bacterial_defense'/name.lower(); target.mkdir(parents=True,exist_ok=True)
+            try:
+                if name=='DefenseFinder':
+                    subprocess.run([exe,'run','--out-dir',str(target),bacteria],check=True)
+                else:
+                    subprocess.run([exe,'--faa',bacteria,'--outdir',str(target)],check=True)
+                result[name]['ran']=True; result[name]['output']=str(target)
+            except (OSError,subprocess.CalledProcessError) as e: result[name]['error']=str(e)
+        elif exe: result[name]['note']='Installed; provide PHAGEWEAVE_BACTERIA_DIR to run bacterial defense screening.'
+        else: result[name]['note']='Executable not installed.'
     status.parent.mkdir(parents=True,exist_ok=True); status.write_text(json.dumps(result,indent=2))
 if __name__=='__main__': main()
