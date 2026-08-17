@@ -9,7 +9,7 @@ if ! conda env list | awk '{print $1}' | grep -qx phageweave-replidec; then
   log 'Installing Replidec replication-cycle predictor'
   conda create -y -n phageweave-replidec -c conda-forge -c bioconda replidec mmseqs2 hmmer blast || log 'Replidec installation failed; retry later.'
 fi
-if ! conda env list | awk '{print $1}' | grep -qx phageweave-vhulk; then
+if [[ "${PHAGEWEAVE_ENABLE_VHULK:-0}" == "1" ]] && ! conda env list | awk '{print $1}' | grep -qx phageweave-vhulk; then
   log 'Installing vHULK host-prediction environment (legacy Python/TensorFlow stack)'
   # TensorFlow 2.8.2 is absent from some macOS Conda channels. Create the
   # scientific-tool environment with Conda, then install the matching Intel
@@ -20,6 +20,9 @@ if ! conda env list | awk '{print $1}' | grep -qx phageweave-vhulk; then
     conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.10 prokka hmmer 'numpy<2' pandas scipy biopython pip || log 'vHULK base environment failed.'
     conda run -n phageweave-vhulk python -m pip install 'tensorflow==2.8.2' || log 'TensorFlow 2.8.2 could not be installed; use Linux/Docker.'
   fi
+fi
+if [[ "${PHAGEWEAVE_ENABLE_VHULK:-0}" != "1" ]]; then
+  log 'vHULK disabled by default; WIsH is the host-prediction method.'
 fi
 if [[ ! -d "$TOOLS/vHULK" ]]; then
   log 'Fetching vHULK models and script'

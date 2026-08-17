@@ -55,14 +55,14 @@ def main():
             result['Replidec']['error']=str(e)
     else:
         result['Replidec']['note']='Install Replidec (conda environment phageweave-replidec) to enable replication-cycle evidence.'
-    # vHULK is the primary host predictor. It ships trained models and emits
-    # one CSV per input genome. Keep its environment separate because it uses
-    # an older TensorFlow/Prokka stack than the main workflow.
+    # vHULK is an opt-in legacy host predictor. WIsH is the default host
+    # predictor because it is portable and uses a user-supplied host database.
+    vh_enabled=os.environ.get('PHAGEWEAVE_ENABLE_VHULK','0').lower() in {'1','true','yes'}
     vh_prefix=Path(os.environ.get('PHAGEWEAVE_VHULK_PREFIX',str(Path(conda_base)/'envs/phageweave-vhulk')))
     vh_env=vh_prefix/'bin'; vh=vh_env/'vHULK.py'
     if not vh.exists(): vh=Path(__file__).resolve().parents[2]/'tools'/'vHULK'/'vHULK.py'
-    result['vHULK']['available']=vh.exists()
-    if vh.exists():
+    result['vHULK']['available']=bool(vh.exists() and vh_enabled)
+    if vh_enabled and vh.exists():
         vh_out=out/'vhulk'; vh_out.mkdir(parents=True,exist_ok=True)
         vh_envvars=env.copy(); vh_envvars['PATH']=str(vh_env)+os.pathsep+vh_envvars.get('PATH','')
         try:
@@ -72,7 +72,7 @@ def main():
             result['vHULK']['ran']=bool(preds); result['vHULK']['prediction_files']=[str(p) for p in preds]
             if not preds: result['vHULK']['error']='completed without prediction_*.csv'
         except (OSError,subprocess.CalledProcessError) as e: result['vHULK']['error']=str(e)
-    else: result['vHULK']['note']='Install vHULK in phageweave-vhulk or set PHAGEWEAVE_VHULK_PREFIX.'
+    else: result['vHULK']['note']='Disabled by default; use WIsH. Set PHAGEWEAVE_ENABLE_VHULK=1 to opt in on a compatible host.'
     # WIsH is intentionally conditional: it requires a directory of bacterial
     # genomes supplied by the user to build its host models.
     local_wish=Path(__file__).resolve().parents[2]/'tools'/'WIsH'/'WIsH'
