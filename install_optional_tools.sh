@@ -5,6 +5,10 @@ TOOLS="$ROOT/tools"
 mkdir -p "$TOOLS"
 log(){ echo "[PhageWeave] $*"; }
 command -v conda >/dev/null || { echo 'Conda/Miniforge is required.' >&2; exit 1; }
+if ! conda env list | awk '{print $1}' | grep -qx phageweave-replidec; then
+  log 'Installing Replidec replication-cycle predictor'
+  conda create -y -n phageweave-replidec -c conda-forge -c bioconda replidec mmseqs2 hmmer blast || log 'Replidec installation failed; retry later.'
+fi
 if ! conda env list | awk '{print $1}' | grep -qx phageweave-defense; then
   log 'Installing DefenseFinder environment'
   conda create -y -n phageweave-defense -c conda-forge -c bioconda python=3.12 hmmer mdmparis-defense-finder || log 'DefenseFinder installation failed; retry later.'

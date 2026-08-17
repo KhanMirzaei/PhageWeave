@@ -5,3 +5,5 @@ databases/
 inputs/
 *.pyc
 __pycache__/
+tools/
+log

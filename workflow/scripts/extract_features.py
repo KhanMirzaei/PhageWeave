@@ -29,9 +29,9 @@ def main():
  if len(sys.argv)!=3:raise SystemExit('usage: extract_features.py INPUT_DIR OUTPUT_TSV')
  ps=sorted(p for p in Path(sys.argv[1]).glob('*') if p.suffix.lower() in {'.fa','.fasta','.fna','.fas'})
  if not ps:raise SystemExit('No FASTA genomes found')
- out=Path(sys.argv[2]);out.parent.mkdir(parents=True,exist_ok=True); fields=['sample','file','length','protein_count','gc_fraction','depolymerase','anti_defense','sie','rbp','integrase','lysis','host_genus','host_score']
+ out=Path(sys.argv[2]);out.parent.mkdir(parents=True,exist_ok=True); fields=['sample','file','length','protein_count','gc_fraction','depolymerase','anti_defense','sie','rbp','integrase','lysis','host_genus','host_score','host_status','replication_cycle','replication_temperate_score','replication_virulent_score','replication_chronic_score']
  with out.open('w',newline='') as f:
   w=csv.DictWriter(f,fieldnames=fields,delimiter='\t');w.writeheader()
   for p in ps:
-   name,s=fasta(p); row={k:0 for k in fields};row.update(sample=p.stem,file=str(p.resolve()),length=len(s),protein_count=len(proteins(s)),gc_fraction=round((s.count('G')+s.count('C'))/max(1,len(s)),4),host_genus='',host_score='');w.writerow(row)
+   name,s=fasta(p); row={k:0 for k in fields};row.update(sample=p.stem,file=str(p.resolve()),length=len(s),protein_count=len(proteins(s)),gc_fraction=round((s.count('G')+s.count('C'))/max(1,len(s)),4),host_genus='',host_score='',host_status='not_run',replication_cycle='',replication_temperate_score='',replication_virulent_score='',replication_chronic_score='');w.writerow(row)
 if __name__=='__main__':main()
