@@ -18,7 +18,12 @@ def main():
             try:
                 subprocess.run(['conda','run','-n','phageorbit-pharokka','pharokka.py','-i',str(combined),'-o',str(out/'pharokka'),'-d',str(db),'-t','2','-m','-f'],check=True)
                 result['Pharokka']['ran']=True
-            except (OSError,subprocess.CalledProcessError) as e: result['Pharokka']['error']=str(e)
+            except (OSError,subprocess.CalledProcessError) as e:
+                result['Pharokka']['error']=str(e)
+                # Pharokka may complete gene prediction before a downstream
+                # PHROG/MMseqs database failure. Preserve that usable output.
+                aa=out/'pharokka'/'prodigal-gv_aas_tmp.fasta'
+                result['Pharokka']['partial']=aa.exists(); result['Pharokka']['ran']=aa.exists()
         else: result['Pharokka']['error']='database not found at databases/pharokka'
     for name,commands in {'RaFAH':['rafah','RaFAH.pl'],'DefenseFinder':['defensefinder','defense-finder'],'PADLOC':['padloc'],'DePP':['DePP.py','depp']}.items():
         exe=next((shutil.which(x) for x in commands if shutil.which(x)),None)
