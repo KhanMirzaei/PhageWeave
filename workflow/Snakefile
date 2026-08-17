@@ -9,8 +9,15 @@ rule all:
         report=f"{OUT}/report/index.html"
 rule extract_features:
     input: directory=INPUT_DIR
-    output: features=f"{OUT}/analysis/phage_features.tsv"
+    output: features=f"{OUT}/analysis/phage_features_raw.tsv"
     shell: "python workflow/scripts/extract_features.py {input.directory} {output.features}"
+
+rule enrich_features:
+    input:
+        raw=f"{OUT}/analysis/phage_features_raw.tsv",
+        modules=f"{OUT}/analysis/module_status.json"
+    output: features=f"{OUT}/analysis/phage_features.tsv"
+    shell: "python workflow/scripts/enrich_features.py {input.raw} {OUT}/modules {output.features}"
 rule score_pairs:
     input:
         features=f"{OUT}/analysis/phage_features.tsv",

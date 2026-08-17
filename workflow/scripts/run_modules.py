@@ -11,7 +11,7 @@ def main():
         for p in fasta: w.write(p.read_text().rstrip()+'\n')
     result={'Pharokka':{'available':False,'ran':False},'RaFAH':{'available':False,'ran':False},'DefenseFinder':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False}}
     ph=Path('/usr/local/Caskroom/miniconda/base/envs/phageorbit-pharokka/bin/pharokka.py')
-    db=Path('databases/pharokka')
+    db=Path(__import__('os').environ.get('PHAGEWEAVE_PHAROKKA_DB','databases/pharokka'))
     if ph.exists():
         result['Pharokka']['available']=True
         if db.exists():
