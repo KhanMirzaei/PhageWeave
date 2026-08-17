@@ -20,7 +20,7 @@ TRAITS = {
 def annotations(mod):
     """Return (sample, text, protein_count) rows from Pharokka output."""
     out=[]
-    for tsv in Path(mod).glob('pharokka/*product*.tsv'):
+    for tsv in Path(mod).glob('pharokka/**/*product*.tsv'):
         with tsv.open(errors='ignore') as h:
             for r in csv.DictReader(h, delimiter='\t'):
                 sample=(r.get('contig') or r.get('sequence') or '').split()[0]
@@ -28,7 +28,7 @@ def annotations(mod):
                 if sample: out.append((sample,text))
     # Pharokka's Prodigal table is always available when gene calling worked.
     if not out:
-        for tsv in Path(mod).glob('pharokka/cleaned*.tsv'):
+        for tsv in Path(mod).glob('pharokka/**/cleaned*.tsv'):
             with tsv.open(errors='ignore') as h:
                 for r in csv.DictReader(h, delimiter='\t'):
                     sample=(r.get('contig') or '').split()[0]

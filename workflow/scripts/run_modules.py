@@ -15,22 +15,41 @@ def main():
             header=next((x[1:].split()[0] for x in txt.splitlines() if x.startswith('>')),p.stem)
             a.write(f'{p.stem}\t{header}\n')
     result={'Pharokka':{'available':False,'ran':False},'Replidec':{'available':False,'ran':False},'vHULK':{'available':False,'ran':False},'WIsH':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False},'RBP':{'available':True,'ran':False,'note':'Derived by trait_scan.py from Pharokka annotations.'},'Depolymerase':{'available':False,'ran':False}}
-    ph=Path('/usr/local/Caskroom/miniconda/base/envs/phageorbit-pharokka/bin/pharokka.py')
-    db=Path(__import__('os').environ.get('PHAGEWEAVE_PHAROKKA_DB','databases/pharokka'))
-    if ph.exists() and os.environ.get('PHAGEWEAVE_SKIP_PHAROKKA','0') not in {'1','true','yes'}:
+    project_root=Path(__file__).resolve().parents[2]
+    ph_env_name=os.environ.get('PHAGEWEAVE_PHAROKKA_ENV','phageweave-pharokka')
+    ph_prefix=os.environ.get('PHAGEWEAVE_PHAROKKA_PREFIX','')
+    if ph_prefix:
+        ph_base=Path(ph_prefix)
+    else:
+        base=Path(subprocess.run(['conda','info','--base'],capture_output=True,text=True).stdout.strip())
+        ph_base=base/'envs'/ph_env_name
+    ph=next((p for p in (ph_base/'bin'/'pharokka',ph_base/'bin'/'pharokka.py') if p.exists()),None)
+    if ph is None:
+        found=shutil.which('pharokka.py') or shutil.which('pharokka')
+        ph=Path(found) if found else None
+    db=Path(os.environ.get('PHAGEWEAVE_PHAROKKA_DB',str(project_root/'databases'/'pharokka')))
+    if ph is not None and ph.exists() and os.environ.get('PHAGEWEAVE_SKIP_PHAROKKA','0') not in {'1','true','yes'}:
         result['Pharokka']['available']=True
         if db.exists():
-            try:
-                subprocess.run(['conda','run','-n','phageorbit-pharokka','pharokka.py','-i',str(combined),'-o',str(out/'pharokka'),'-d',str(db),'-t','2','-m','-f'],check=True)
-                result['Pharokka']['ran']=True
-            except (OSError,subprocess.CalledProcessError) as e:
-                result['Pharokka']['error']=str(e)
-                # Pharokka may complete gene prediction before a downstream
-                # PHROG/MMseqs database failure. Preserve that usable output.
-                aa=out/'pharokka'/'prodigal-gv_aas_tmp.fasta'
-                result['Pharokka']['partial']=aa.exists(); result['Pharokka']['ran']=aa.exists()
+            ph_env=os.environ.copy()
+            shim=project_root/'tools'/'phageweave_bin'
+            ph_env['PATH']=os.pathsep.join((str(shim),str(ph_base/'bin'),ph_env.get('PATH','')))
+            ph_out=out/'pharokka'; ph_out.mkdir(parents=True,exist_ok=True)
+            successes=[]; errors=[]
+            for query in fasta:
+                sample_out=ph_out/query.stem; sample_out.mkdir(parents=True,exist_ok=True)
+                try:
+                    common=['-i',str(query),'-o',str(sample_out),'-d',str(db),'-t','2','-g','prodigal-gv','--fast','--skip_extra_annotations','--skip_mash','-f']
+                    args=[str(ph),*(['run'] if ph.name=='pharokka' else []),*common]
+                    subprocess.run(args,check=True,env=ph_env)
+                    successes.append(str(sample_out))
+                except (OSError,subprocess.CalledProcessError) as e:
+                    errors.append(f'{query.name}: {e}')
+            result['Pharokka']['ran']=bool(successes); result['Pharokka']['outputs']=successes
+            if errors: result['Pharokka']['errors']=errors
+            result['Pharokka']['partial']=bool(successes) and bool(errors)
         else: result['Pharokka']['error']='database not found at databases/pharokka'
-    elif ph.exists():
+    elif ph is not None and ph.exists():
         result['Pharokka']['available']=True; result['Pharokka']['note']='Skipped by PHAGEWEAVE_SKIP_PHAROKKA.'
     # Replidec predicts virulent, temperate, or chronic replication cycle.
     # Prefer an executable in PATH, then the dedicated conda environment.
@@ -96,7 +115,8 @@ def main():
     depp_script=Path(__file__).resolve().parents[2]/'tools'/'DePP'/'DePP_CLI'/'depp_cli.py'
     depp_prefix=Path(os.environ.get('PHAGEWEAVE_DEPP_PREFIX',str(Path(conda_base)/'envs/phageweave-depp')))
     depp_py=depp_prefix/'bin'/'python'
-    faa=next((p for p in (out/'pharokka').glob('*aas*.fasta') if p.exists()),None)
+    faa_files=sorted((out/'pharokka').rglob('*aas*.fasta')) if (out/'pharokka').exists() else []
+    faa=faa_files[0] if faa_files else None
     result['DePP']['available']=depp_script.exists() and depp_py.exists()
     if result['DePP']['available'] and faa:
         dpout=out/'depp_predictions.csv'; dpout.parent.mkdir(parents=True,exist_ok=True)
@@ -105,7 +125,8 @@ def main():
         # ambiguous residues so one imperfect ORF cannot abort the run.
         clean_faa=out/'depp_input.fasta'
         records=[]; header=None; seq=[]
-        for line in faa.read_text(errors='ignore').splitlines():
+        for source in faa_files:
+          for line in source.read_text(errors='ignore').splitlines():
             if line.startswith('>'):
                 if header is not None: records.append((header,''.join(seq)))
                 header=line.strip(); seq=[]
@@ -124,6 +145,9 @@ def main():
     else: result['DePP']['note']='Install the optional phageweave-depp environment.'
     for name,commands in {'PADLOC':['padloc']}.items():
         exe=next((shutil.which(x) for x in commands if shutil.which(x)),None)
+        if not exe:
+            padloc_candidate=Path(os.environ.get('PHAGEWEAVE_PADLOC_PREFIX',str(Path(conda_base)/'envs/phageweave-padloc')))/'bin'/'padloc'
+            if padloc_candidate.exists(): exe=str(padloc_candidate)
         result[name]['available']=bool(exe)
         bacteria=os.environ.get('PHAGEWEAVE_BACTERIA_DIR','')
         # DefenseFinder/PADLOC operate on bacterial proteins/genomes, not on
