@@ -14,7 +14,7 @@ def main():
             txt=p.read_text().rstrip(); w.write(txt+'\n')
             header=next((x[1:].split()[0] for x in txt.splitlines() if x.startswith('>')),p.stem)
             a.write(f'{p.stem}\t{header}\n')
-    result={'Pharokka':{'available':False,'ran':False},'Replidec':{'available':False,'ran':False},'RaFAH':{'available':False,'ran':False},'DefenseFinder':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False}}
+    result={'Pharokka':{'available':False,'ran':False},'Replidec':{'available':False,'ran':False},'vHULK':{'available':False,'ran':False},'WIsH':{'available':False,'ran':False},'DefenseFinder':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False}}
     ph=Path('/usr/local/Caskroom/miniconda/base/envs/phageorbit-pharokka/bin/pharokka.py')
     db=Path(__import__('os').environ.get('PHAGEWEAVE_PHAROKKA_DB','databases/pharokka'))
     if ph.exists() and os.environ.get('PHAGEWEAVE_SKIP_PHAROKKA','0') not in {'1','true','yes'}:
@@ -55,15 +55,41 @@ def main():
             result['Replidec']['error']=str(e)
     else:
         result['Replidec']['note']='Install Replidec (conda environment phageweave-replidec) to enable replication-cycle evidence.'
-    for name,commands in {'RaFAH':['rafah','RaFAH.pl'],'DefenseFinder':['defensefinder','defense-finder'],'PADLOC':['padloc'],'DePP':['DePP.py','depp']}.items():
+    # vHULK is the primary host predictor. It ships trained models and emits
+    # one CSV per input genome. Keep its environment separate because it uses
+    # an older TensorFlow/Prokka stack than the main workflow.
+    vh_prefix=Path(os.environ.get('PHAGEWEAVE_VHULK_PREFIX',str(Path(conda_base)/'envs/phageweave-vhulk')))
+    vh_env=vh_prefix/'bin'; vh=vh_env/'vHULK.py'
+    if not vh.exists(): vh=Path(__file__).resolve().parents[2]/'tools'/'vHULK'/'vHULK.py'
+    result['vHULK']['available']=vh.exists()
+    if vh.exists():
+        vh_out=out/'vhulk'; vh_out.mkdir(parents=True,exist_ok=True)
+        vh_envvars=env.copy(); vh_envvars['PATH']=str(vh_env)+os.pathsep+vh_envvars.get('PATH','')
+        try:
+            vh_cmd=[str(vh)] if os.access(vh,os.X_OK) else [sys.executable,str(vh)]
+            subprocess.run(vh_cmd+['-i',str(inp),'-o',str(vh_out),'-t','2','--all'],check=True,env=vh_envvars)
+            preds=list(vh_out.glob('prediction_*.csv'))
+            result['vHULK']['ran']=bool(preds); result['vHULK']['prediction_files']=[str(p) for p in preds]
+            if not preds: result['vHULK']['error']='completed without prediction_*.csv'
+        except (OSError,subprocess.CalledProcessError) as e: result['vHULK']['error']=str(e)
+    else: result['vHULK']['note']='Install vHULK in phageweave-vhulk or set PHAGEWEAVE_VHULK_PREFIX.'
+    # WIsH is intentionally conditional: it requires a directory of bacterial
+    # genomes supplied by the user to build its host models.
+    local_wish=Path(__file__).resolve().parents[2]/'tools'/'WIsH'/'WIsH'
+    wish=str(local_wish) if local_wish.exists() else shutil.which('WIsH')
+    host_db=os.environ.get('PHAGEWEAVE_WISH_HOST_DB','')
+    result['WIsH']['available']=bool(wish); result['WIsH']['host_database']=host_db or None
+    if wish and host_db and Path(host_db).is_dir():
+        wm=out/'wish_models'; wr=out/'wish'; wm.mkdir(parents=True,exist_ok=True); wr.mkdir(parents=True,exist_ok=True)
+        try:
+            subprocess.run([wish,'-c','build','-g',host_db,'-m',str(wm)],check=True)
+            subprocess.run([wish,'-c','predict','-g',str(inp),'-m',str(wm),'-r',str(wr),'-b','5'],check=True)
+            result['WIsH']['ran']=(wr/'prediction.list').exists(); result['WIsH']['output']=str(wr/'prediction.list')
+        except (OSError,subprocess.CalledProcessError) as e: result['WIsH']['error']=str(e)
+    elif not wish: result['WIsH']['note']='WIsH executable not installed.'
+    else: result['WIsH']['note']='Provide bacterial FASTA directory with PHAGEWEAVE_WISH_HOST_DB to enable WIsH.'
+    for name,commands in {'DefenseFinder':['defensefinder','defense-finder'],'PADLOC':['padloc'],'DePP':['DePP.py','depp']}.items():
         exe=next((shutil.which(x) for x in commands if shutil.which(x)),None)
-        if name=='RaFAH':
-            root=Path(__file__).resolve().parents[2]/'tools'/'RaFAH'; script=root/'RaFAH.pl'
-            required=[root/'HP_Ranger_Model_3_Valid_Cols.txt',root/'HP_Ranger_Model_3_Filtered_0.9_Valids.hmm',root/'MMSeqs_Clusters_Ranger_Model_1+2+3_Clean.RData',root/'RaFAH_Predict_Host.R']
-            missing=[p.name for p in required if not p.exists()]
-            result[name]['available']=script.exists(); result[name]['model_assets']=not missing
-            result[name]['note']=('RaFAH scripts found; missing model assets: '+', '.join(missing)) if missing else 'Model assets found; R/ranger and runtime dependencies still require verification.'
-        else:
-            result[name]['available']=bool(exe); result[name]['note']='Detected but not auto-run without a configured database/model.' if exe else 'Executable not installed.'
+        result[name]['available']=bool(exe); result[name]['note']='Detected but not auto-run without a configured database/model.' if exe else 'Executable not installed.'
     status.parent.mkdir(parents=True,exist_ok=True); status.write_text(json.dumps(result,indent=2))
 if __name__=='__main__': main()
