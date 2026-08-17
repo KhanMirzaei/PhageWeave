@@ -16,7 +16,7 @@ def main():
         result['Pharokka']['available']=True
         if db.exists():
             try:
-                subprocess.run(['conda','run','-n','phageorbit-pharokka','pharokka.py','-i',str(combined),'-o',str(out/'pharokka'),'-d',str(db),'-t','2'],check=True)
+                subprocess.run(['conda','run','-n','phageorbit-pharokka','pharokka.py','-i',str(combined),'-o',str(out/'pharokka'),'-d',str(db),'-t','2','-m','-f'],check=True)
                 result['Pharokka']['ran']=True
             except (OSError,subprocess.CalledProcessError) as e: result['Pharokka']['error']=str(e)
         else: result['Pharokka']['error']='database not found at databases/pharokka'
