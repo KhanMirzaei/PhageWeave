@@ -57,6 +57,13 @@ def main():
         result['Replidec']['note']='Install Replidec (conda environment phageweave-replidec) to enable replication-cycle evidence.'
     for name,commands in {'RaFAH':['rafah','RaFAH.pl'],'DefenseFinder':['defensefinder','defense-finder'],'PADLOC':['padloc'],'DePP':['DePP.py','depp']}.items():
         exe=next((shutil.which(x) for x in commands if shutil.which(x)),None)
-        result[name]['available']=bool(exe); result[name]['note']='Detected but not auto-run without a configured database/model.' if exe else 'Executable not installed.'
+        if name=='RaFAH':
+            root=Path(__file__).resolve().parents[2]/'tools'/'RaFAH'; script=root/'RaFAH.pl'
+            required=[root/'HP_Ranger_Model_3_Valid_Cols.txt',root/'HP_Ranger_Model_3_Filtered_0.9_Valids.hmm',root/'MMSeqs_Clusters_Ranger_Model_1+2+3_Clean.RData',root/'RaFAH_Predict_Host.R']
+            missing=[p.name for p in required if not p.exists()]
+            result[name]['available']=script.exists(); result[name]['model_assets']=not missing
+            result[name]['note']=('RaFAH scripts found; missing model assets: '+', '.join(missing)) if missing else 'Model assets found; R/ranger and runtime dependencies still require verification.'
+        else:
+            result[name]['available']=bool(exe); result[name]['note']='Detected but not auto-run without a configured database/model.' if exe else 'Executable not installed.'
     status.parent.mkdir(parents=True,exist_ok=True); status.write_text(json.dumps(result,indent=2))
 if __name__=='__main__': main()
