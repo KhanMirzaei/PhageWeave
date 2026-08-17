@@ -9,13 +9,14 @@ def known(x): return str(x or '').strip().lower() not in {'','na','nan','not_ava
 def main():
  if len(sys.argv)!=3:raise SystemExit('usage: score_pairs.py FEATURES OUTPUT')
  rows=list(csv.DictReader(Path(sys.argv[1]).open(),delimiter='\t'));out=Path(sys.argv[2]);out.parent.mkdir(parents=True,exist_ok=True)
- fields=['phage_a','phage_b','genome_similarity','host_overlap','depolymerase_complementarity','anti_defense_complementarity','sie_competition','rbp_competition','lifestyle_conflict','synergy_score','interference_score','prediction','confidence','explanation']
+ fields=['phage_a','phage_b','genome_similarity','host_overlap','depolymerase_complementarity','anti_defense_complementarity','sie_competition','rbp_candidates_a','rbp_candidates_b','rbp_competition','lifestyle_conflict','synergy_score','interference_score','prediction','confidence','explanation']
  with out.open('w',newline='') as f:
   w=csv.DictWriter(f,fieldnames=fields,delimiter='\t');w.writeheader()
   for a,b in itertools.combinations(rows,2):
    sim=max(0,1-abs(num(a.get('gc_fraction'))-num(b.get('gc_fraction')))*4)*max(0,1-abs(num(a.get('length'))-num(b.get('length')))/max(num(a.get('length')),num(b.get('length')),1))
    host_known=known(a.get('host_genus')) and known(b.get('host_genus')); host=(int(a.get('host_genus')==b.get('host_genus')) if host_known else 'NA')
    dep=int(bool(num(a.get('depolymerase'))))^int(bool(num(b.get('depolymerase')))); anti=int(bool(num(a.get('anti_defense'))))^int(bool(num(b.get('anti_defense')))); sie=max(num(a.get('sie')),num(b.get('sie'))); rbp=sim
+   rbpa=int(num(a.get('rbp_candidate_count'))); rbpb=int(num(b.get('rbp_candidate_count')))
    la=(a.get('replication_cycle') or '').lower(); lb=(b.get('replication_cycle') or '').lower(); lifestyle=int(bool(la and lb and la!=lb))
    host_term=(0.2*int(host) if host_known else 0.0)
    sy=.35*dep+.3*anti+host_term+.15*(1-sim)
@@ -31,5 +32,6 @@ def main():
    elif not host_known:ev.append('host prediction unavailable; host overlap not scored')
    if lifestyle:ev.append(f"different Replidec cycles ({a.get('replication_cycle')} vs {b.get('replication_cycle')})")
    if sie:ev.append('superinfection-exclusion marker')
-   w.writerow(dict(phage_a=a['sample'],phage_b=b['sample'],genome_similarity=f'{sim:.3f}',host_overlap=host,depolymerase_complementarity=dep,anti_defense_complementarity=anti,sie_competition=f'{sie:.3f}',rbp_competition=f'{rbp:.3f}',lifestyle_conflict=lifestyle,synergy_score=f'{sy:.3f}',interference_score=f'{inter:.3f}',prediction=pred,confidence=f'{conf:.3f}',explanation='; '.join(ev) or 'No strong mechanistic evidence'))
+   if rbpa or rbpb:ev.append(f'RBP/tail candidates ({rbpa} vs {rbpb})')
+   w.writerow(dict(phage_a=a['sample'],phage_b=b['sample'],genome_similarity=f'{sim:.3f}',host_overlap=host,depolymerase_complementarity=dep,anti_defense_complementarity=anti,sie_competition=f'{sie:.3f}',rbp_candidates_a=rbpa,rbp_candidates_b=rbpb,rbp_competition=f'{rbp:.3f}',lifestyle_conflict=lifestyle,synergy_score=f'{sy:.3f}',interference_score=f'{inter:.3f}',prediction=pred,confidence=f'{conf:.3f}',explanation='; '.join(ev) or 'No strong mechanistic evidence'))
 if __name__=='__main__':main()

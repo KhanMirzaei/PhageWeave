@@ -14,7 +14,7 @@ def main():
             txt=p.read_text().rstrip(); w.write(txt+'\n')
             header=next((x[1:].split()[0] for x in txt.splitlines() if x.startswith('>')),p.stem)
             a.write(f'{p.stem}\t{header}\n')
-    result={'Pharokka':{'available':False,'ran':False},'Replidec':{'available':False,'ran':False},'vHULK':{'available':False,'ran':False},'WIsH':{'available':False,'ran':False},'DefenseFinder':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False},'Depolymerase/RBP/Sie':{'available':True,'ran':False,'note':'Derived by trait_scan.py from Pharokka annotations.'},'AcrFinder':{'available':False,'ran':False}}
+    result={'Pharokka':{'available':False,'ran':False},'Replidec':{'available':False,'ran':False},'vHULK':{'available':False,'ran':False},'WIsH':{'available':False,'ran':False},'PADLOC':{'available':False,'ran':False},'DePP':{'available':False,'ran':False},'RBP':{'available':True,'ran':False,'note':'Derived by trait_scan.py from Pharokka annotations.'},'Depolymerase':{'available':False,'ran':False}}
     ph=Path('/usr/local/Caskroom/miniconda/base/envs/phageorbit-pharokka/bin/pharokka.py')
     db=Path(__import__('os').environ.get('PHAGEWEAVE_PHAROKKA_DB','databases/pharokka'))
     if ph.exists() and os.environ.get('PHAGEWEAVE_SKIP_PHAROKKA','0') not in {'1','true','yes'}:
@@ -90,8 +90,39 @@ def main():
     else: result['WIsH']['note']='Provide bacterial FASTA directory with PHAGEWEAVE_WISH_HOST_DB to enable WIsH.'
     # Trait scan is always wired; it uses Pharokka product annotations and
     # explicitly reports unavailable when no annotation text exists.
-    result['Depolymerase/RBP/Sie']['ran']=bool((out/'pharokka').exists())
-    for name,commands in {'DefenseFinder':['defense-finder','defensefinder'],'PADLOC':['padloc'],'DePP':['DePP.py','depp'],'AcrFinder':['acrfinder','AcrFinder']}.items():
+    result['RBP']['ran']=bool((out/'pharokka').exists())
+    # DePP consumes the Pharokka/Prodigal amino-acid FASTA. It is optional but
+    # fully wired when its small Python environment and model are available.
+    depp_script=Path(__file__).resolve().parents[2]/'tools'/'DePP'/'DePP_CLI'/'depp_cli.py'
+    depp_prefix=Path(os.environ.get('PHAGEWEAVE_DEPP_PREFIX',str(Path(conda_base)/'envs/phageweave-depp')))
+    depp_py=depp_prefix/'bin'/'python'
+    faa=next((p for p in (out/'pharokka').glob('*aas*.fasta') if p.exists()),None)
+    result['DePP']['available']=depp_script.exists() and depp_py.exists()
+    if result['DePP']['available'] and faa:
+        dpout=out/'depp_predictions.csv'; dpout.parent.mkdir(parents=True,exist_ok=True)
+        # DePP's legacy Biopython feature calculator rejects ambiguous X/*
+        # residues. Keep headers, strip stops, and conservatively replace
+        # ambiguous residues so one imperfect ORF cannot abort the run.
+        clean_faa=out/'depp_input.fasta'
+        records=[]; header=None; seq=[]
+        for line in faa.read_text(errors='ignore').splitlines():
+            if line.startswith('>'):
+                if header is not None: records.append((header,''.join(seq)))
+                header=line.strip(); seq=[]
+            else: seq.append(line.strip())
+        if header is not None: records.append((header,''.join(seq)))
+        with clean_faa.open('w') as ch:
+            for h,s in records:
+                s=''.join(c if c in 'ACDEFGHIKLMNPQRSTVWY' else 'A' for c in s.upper().rstrip('*'))
+                ch.write(h+'\n'+s+'\n')
+        try:
+            subprocess.run([str(depp_py),str(depp_script),'-i',str(clean_faa),'-o',str(dpout)],check=True,cwd=str(depp_script.parent))
+            result['DePP']['ran']=dpout.exists(); result['DePP']['output']=str(dpout)
+        except (OSError,subprocess.CalledProcessError) as e: result['DePP']['error']=str(e)
+    elif result['DePP']['available']:
+        result['DePP']['note']='Install/run Pharokka first to provide protein FASTA.'
+    else: result['DePP']['note']='Install the optional phageweave-depp environment.'
+    for name,commands in {'PADLOC':['padloc']}.items():
         exe=next((shutil.which(x) for x in commands if shutil.which(x)),None)
         result[name]['available']=bool(exe)
         bacteria=os.environ.get('PHAGEWEAVE_BACTERIA_DIR','')

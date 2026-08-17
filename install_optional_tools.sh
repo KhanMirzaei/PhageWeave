@@ -35,16 +35,13 @@ fi
 if [[ -d "$TOOLS/WIsH" && ! -x "$TOOLS/WIsH/WIsH" ]]; then
   (cd "$TOOLS/WIsH" && cmake . && make -j2) || log 'WIsH compilation failed; install a C++11/OpenMP compiler and retry.'
 fi
-if ! conda env list | awk '{print $1}' | grep -qx phageweave-defense; then
-  log 'Installing DefenseFinder environment'
-  conda create -y -n phageweave-defense -c conda-forge -c bioconda python=3.12 hmmer mdmparis-defense-finder || log 'DefenseFinder installation failed; retry later.'
-fi
-if conda env list | awk '{print $1}' | grep -qx phageweave-defense; then
-  conda run -n phageweave-defense defense-finder update || log 'DefenseFinder models were not downloaded.'
-fi
 if ! conda env list | awk '{print $1}' | grep -qx phageweave-padloc; then
   log 'Installing PADLOC environment'
   conda create -y -n phageweave-padloc -c conda-forge -c bioconda padloc || log 'PADLOC installation failed; retry later.'
+fi
+if ! conda env list | awk '{print $1}' | grep -qx phageweave-depp; then
+  log 'Installing DePP depolymerase predictor environment'
+  conda create -y -n phageweave-depp -c conda-forge python=3.10 'biopython<1.80' 'numpy<2' pandas scikit-learn || log 'DePP installation failed; retry later.'
 fi
 if [[ ! -d "$TOOLS/DePP" ]]; then
   log 'Fetching DePP source and model files'

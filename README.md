@@ -2,7 +2,7 @@
 
 Pairwise genomic screening of candidate phage synergy, additivity, and interference.
 
-The pipeline accepts two or more phage FASTA files, builds a pairwise feature matrix, adds Replidec replication-cycle evidence (virulent/temperate/chronic), and writes an auditable HTML report. WIsH is the default host predictor when a directory of bacterial genomes is supplied; vHULK is retained as an opt-in legacy module. Pharokka-derived trait scanning covers depolymerases/capsule enzymes, receptor-binding/tail proteins, anti-defense keywords, lysis, and superinfection-exclusion/repressor signals. DefenseFinder and PADLOC screen supplied bacterial genomes for host anti-phage defense systems. DePP and AcrFinder are supported when installed. A missing module is reported as unavailable and is never silently treated as a biological negative. Scores are a transparent screening baseline—not a validated experimental interaction model.
+The pipeline accepts two or more phage FASTA files, builds a pairwise feature matrix, adds Replidec replication-cycle evidence (virulent/temperate/chronic), and writes an auditable HTML report. WIsH is the default host predictor when a directory of bacterial genomes is supplied; vHULK is retained as an opt-in legacy module. Pharokka-derived trait scanning covers receptor-binding/tail proteins, capsule/depolymerase keywords, anti-defense keywords, lysis, and superinfection-exclusion/repressor signals. DePP is optionally run on Pharokka proteins and reports per-protein depolymerase probabilities. PADLOC can screen supplied bacterial genomes for host anti-phage defense systems. A missing module is reported as unavailable and is never silently treated as a biological negative. Scores are a transparent screening baseline—not a validated experimental interaction model.
 
 ```bash
 bash install.sh
@@ -18,7 +18,7 @@ bash install_optional_tools.sh
 
 Replidec downloads its reference database on first use. For a quick run while troubleshooting Pharokka, set `PHAGEWEAVE_SKIP_PHAROKKA=1`; otherwise Pharokka is attempted automatically when its database is configured.
 
-To include bacterial defense systems, set `PHAGEWEAVE_BACTERIA_DIR` to a directory of bacterial FASTA/protein files before running. DefenseFinder and PADLOC results are written under `modules/bacterial_defense/` and linked in the report. Host defense systems are properties of bacterial genomes; they cannot be inferred reliably from phage FASTA alone.
+To include bacterial defense systems, set `PHAGEWEAVE_BACTERIA_DIR` to a directory of bacterial FASTA/protein files before running. PADLOC results are written under `modules/bacterial_defense/` and linked in the report. Host defense systems are properties of bacterial genomes; they cannot be inferred reliably from phage FASTA alone.
 
 vHULK uses a legacy TensorFlow build. On older Intel Macs whose CPUs lack AVX instructions, TensorFlow aborts during import even when installation succeeds; PhageWeave records vHULK as unavailable and uses WIsH when a bacterial reference directory is provided. Use a newer Linux host or Docker/remote compute for vHULK.
 

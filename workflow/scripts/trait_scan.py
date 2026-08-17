@@ -39,6 +39,13 @@ def main():
     if len(sys.argv)!=4: raise SystemExit('usage: trait_scan.py RAW_FEATURES MODULE_DIR OUTPUT_FEATURES')
     raw,mod,out=map(Path,sys.argv[1:]); rows=list(csv.DictReader(raw.open(),delimiter='\t'))
     ann=annotations(mod)
+    depp={}
+    dp=mod/'depp_predictions.csv'
+    if dp.exists():
+        with dp.open(errors='ignore') as h:
+            for r in csv.DictReader(h):
+                try: depp[r.get('name','').split()[0]]=float(r.get('Probability_DePol',''))
+                except (TypeError,ValueError): pass
     amap={}
     ap=mod/'sample_aliases.tsv'
     if ap.exists():
@@ -49,7 +56,14 @@ def main():
         aliases={row.get('sample',''), Path(row.get('file','')).stem, amap.get(row.get('sample',''),'')}
         texts=[text.lower() for sample,text in ann if sample in aliases or sample.startswith(row.get('sample',''))]
         text=' '.join(texts)
+        contig=amap.get(row.get('sample',''), '')
+        dp_scores=[v for k,v in depp.items() if k.startswith(contig) or k.startswith(row.get('sample',''))]
+        row['depolymerase_score']=f'{max(dp_scores):.4f}' if dp_scores else ''
+        rbp_hits=len(re.findall(TRAITS['rbp'], text, re.I))
+        row['rbp_candidate_count']=rbp_hits
+        row['rbp_score']=f'{min(1.0,rbp_hits/max(1,int(row.get("protein_count",0)))):.4f}'
         for trait,pat in TRAITS.items(): row[trait]=int(bool(re.search(pat,text,re.I)))
+        if dp_scores: row['depolymerase']=int(max(dp_scores)>=0.5)
         row['trait_evidence_count']=sum(row.get(t,'0') in (1,'1') for t in TRAITS)
         row['trait_annotation_status']='annotated' if texts else 'not_available'
     out.parent.mkdir(parents=True,exist_ok=True)
