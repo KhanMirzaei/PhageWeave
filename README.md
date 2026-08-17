@@ -2,7 +2,7 @@
 
 Pairwise genomic screening of candidate phage synergy, additivity, and interference.
 
-The pipeline accepts two or more phage FASTA files, builds a pairwise feature matrix, adds Replidec replication-cycle evidence (virulent/temperate/chronic), and writes an auditable HTML report. WIsH is the default host predictor when a directory of bacterial genomes is supplied; vHULK is retained as an opt-in legacy module. Pharokka-derived trait scanning covers receptor-binding/tail proteins, capsule/depolymerase keywords, anti-defense keywords, lysis, and superinfection-exclusion/repressor signals. DePP is optionally run on Pharokka proteins and reports per-protein depolymerase probabilities. PADLOC can screen supplied bacterial genomes for host anti-phage defense systems. A missing module is reported as unavailable and is never silently treated as a biological negative. Scores are a transparent screening baseline—not a validated experimental interaction model.
+PhageWeave is a genomic analysis pipeline for studying interactions among phages in a combination. It integrates functional traits, host predictions, receptor-binding proteins, defense systems, and depolymerases to predict synergy, additive effects, or interference, with an evidence report.
 
 ```bash
 bash install.sh
