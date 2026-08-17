@@ -1,0 +1,7 @@
+.snakemake/
+results/
+work/
+databases/
+inputs/
+*.pyc
+__pycache__/

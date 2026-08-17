@@ -1,0 +1,31 @@
+configfile: config.get("configfile", "config/config.yaml")
+INPUT_DIR=config.get("input_dir", "examples")
+OUT=config.get("output_dir", "results")
+rule all:
+    input:
+        features=f"{OUT}/analysis/phage_features.tsv",
+        modules=f"{OUT}/analysis/module_status.json",
+        pairs=f"{OUT}/analysis/pairwise_predictions.tsv",
+        report=f"{OUT}/report/index.html"
+rule extract_features:
+    input: directory=INPUT_DIR
+    output: features=f"{OUT}/analysis/phage_features.tsv"
+    shell: "python workflow/scripts/extract_features.py {input.directory} {output.features}"
+rule score_pairs:
+    input:
+        features=f"{OUT}/analysis/phage_features.tsv",
+        modules=f"{OUT}/analysis/module_status.json"
+    output: pairs=f"{OUT}/analysis/pairwise_predictions.tsv"
+    shell: "python workflow/scripts/score_pairs.py {input.features} {output.pairs}"
+
+rule run_external_modules:
+    input: directory=INPUT_DIR
+    output: status=f"{OUT}/analysis/module_status.json"
+    shell: "python workflow/scripts/run_modules.py {input.directory} {OUT}/modules {output.status}"
+rule render_report:
+    input:
+        features=f"{OUT}/analysis/phage_features.tsv",
+        pairs=f"{OUT}/analysis/pairwise_predictions.tsv",
+        modules=f"{OUT}/analysis/module_status.json"
+    output: report=f"{OUT}/report/index.html"
+    shell: "python workflow/scripts/render_report.py {input.features} {input.pairs} {input.modules} {output.report}"
