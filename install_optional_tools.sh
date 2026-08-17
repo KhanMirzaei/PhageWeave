@@ -14,10 +14,10 @@ if ! conda env list | awk '{print $1}' | grep -qx phageweave-vhulk; then
   # TensorFlow 2.8.2 is absent from some macOS Conda channels. Create the
   # scientific-tool environment with Conda, then install the matching Intel
   # macOS wheel with pip as a fallback.
-  if ! conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.10 prokka hmmer numpy pandas scipy biopython pip tensorflow=2.8.2; then
+  if ! conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.10 prokka hmmer 'numpy<2' pandas scipy biopython pip tensorflow=2.8.2; then
     log 'Conda TensorFlow package unavailable; retrying with the pip wheel.'
     conda env remove -y -n phageweave-vhulk >/dev/null 2>&1 || true
-    conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.10 prokka hmmer numpy pandas scipy biopython pip || log 'vHULK base environment failed.'
+    conda create -y -n phageweave-vhulk -c conda-forge -c bioconda python=3.10 prokka hmmer 'numpy<2' pandas scipy biopython pip || log 'vHULK base environment failed.'
     conda run -n phageweave-vhulk python -m pip install 'tensorflow==2.8.2' || log 'TensorFlow 2.8.2 could not be installed; use Linux/Docker.'
   fi
 fi

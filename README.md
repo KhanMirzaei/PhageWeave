@@ -20,6 +20,8 @@ Replidec downloads its reference database on first use. For a quick run while tr
 
 To include bacterial defense systems, set `PHAGEWEAVE_BACTERIA_DIR` to a directory of bacterial FASTA/protein files before running. DefenseFinder and PADLOC results are written under `modules/bacterial_defense/` and linked in the report. Host defense systems are properties of bacterial genomes; they cannot be inferred reliably from phage FASTA alone.
 
+vHULK uses a legacy TensorFlow build. On older Intel Macs whose CPUs lack AVX instructions, TensorFlow aborts during import even when installation succeeds; PhageWeave records vHULK as unavailable and uses WIsH when a bacterial reference directory is provided. Use a newer Linux host or Docker/remote compute for vHULK.
+
 To enable WIsH, provide bacterial reference FASTA files (one genome per file). WIsH builds a Markov model for each supplied bacterial genome and reports log-likelihoods; it does not produce a calibrated probability unless null parameters are supplied.
 
 ```bash
